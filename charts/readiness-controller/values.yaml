@@ -23,7 +23,7 @@ gates:
     targetLabel: "app=donnie"
     namespace: "default"
     checkType: "http"
-    checkTarget: "https://google.com/zokoboko"
+    checkTarget: "https://google.com/"
     interval: "10s"
 
   # Example TCP check
