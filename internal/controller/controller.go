@@ -130,7 +130,9 @@ func (c *ReadinessController) reconcile(ctx context.Context) {
 		// Let's update timestamp if it's been > 1 minute or if we want liveliness
 		if cr.Status.LastProbeTime == nil || time.Since(cr.Status.LastProbeTime.Time) > time.Minute {
 			cr.Status.LastProbeTime = &now
-			c.crdClient.UpdateStatus(ctx, cr)
+			if _, err := c.crdClient.UpdateStatus(ctx, cr); err != nil {
+				log.Printf("[%s] Failed to update CR timestamp: %v", c.rule.Name, err)
+			}
 		}
 	}
 }

@@ -15,7 +15,9 @@ type CrdClient struct {
 }
 
 func NewCrdClient(config *rest.Config, namespace string) (*CrdClient, error) {
-	v1alpha1.AddToScheme(scheme.Scheme)
+	if err := v1alpha1.AddToScheme(scheme.Scheme); err != nil {
+		return nil, err
+	}
 
 	crdConfig := *config
 	crdConfig.ContentConfig.GroupVersion = &v1alpha1.SchemeGroupVersion
