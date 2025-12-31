@@ -1,28 +1,28 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ include "readiness-controller.fullname" . }}
+  name: {{ include "probe-operator.fullname" . }}
   labels:
-    {{- include "readiness-controller.labels" . | nindent 4 }}
+    {{- include "probe-operator.labels" . | nindent 4 }}
 spec:
   replicas: {{ .Values.replicaCount }}
   strategy:
     type: Recreate
   selector:
     matchLabels:
-      {{- include "readiness-controller.selectorLabels" . | nindent 6 }}
+      {{- include "probe-operator.selectorLabels" . | nindent 6 }}
   template:
     metadata:
       annotations:
         checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
       labels:
-        {{- include "readiness-controller.selectorLabels" . | nindent 8 }}
+        {{- include "probe-operator.selectorLabels" . | nindent 8 }}
     spec:
       {{- with .Values.imagePullSecrets }}
       imagePullSecrets:
         {{- toYaml . | nindent 8 }}
       {{- end }}
-      serviceAccountName: {{ include "readiness-controller.serviceAccountName" . }}
+      serviceAccountName: {{ include "probe-operator.serviceAccountName" . }}
       containers:
         - name: {{ .Chart.Name }}
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
@@ -31,7 +31,14 @@ spec:
             - name: http
               containerPort: 8080
               protocol: TCP
+            {{- if .Values.metrics.enabled }}
+            - name: metrics
+              containerPort: {{ .Values.metrics.port }}
+              protocol: TCP
+            {{- end }}
           env:
+            - name: METRICS_ADDR
+              value: ":{{ .Values.metrics.port }}"
             - name: CONFIG_PATH
               value: "/etc/config/gates.json"
           volumeMounts:
@@ -42,4 +49,4 @@ spec:
       volumes:
         - name: config-volume
           configMap:
-            name: {{ include "readiness-controller.fullname" . }}-config
+            name: {{ include "probe-operator.fullname" . }}-config

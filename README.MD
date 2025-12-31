@@ -1,85 +1,81 @@
-# Readiness Controller
+# Probe Operator
 
-![Version](https://img.shields.io/badge/version-0.0.4-blue.svg) ![Kubernetes](https://img.shields.io/badge/kubernetes-1.14+-green.svg)
+![Version](https://img.shields.io/badge/version-0.1.0-blue.svg) ![Kubernetes](https://img.shields.io/badge/kubernetes-1.19+-green.svg)
 [![CI](https://github.com/EladAviczer/readiness-controller/actions/workflows/ci.yaml/badge.svg)](https://github.com/EladAviczer/readiness-controller/actions/workflows/ci.yaml)
 
-**Readiness Controller** is a lightweight Kubernetes controller that implements **Global Dependency Gating**.
+> **Effortless Probing for Kubernetes.**
 
-It centralizes health checking for shared resources (Databases, External APIs) and controls traffic to your application Pods using native [Kubernetes Readiness Gates](https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle/#pod-readiness-gate).
+**Probe Operator** is the easiest way to configure and run health checks, reachability tests, and data validation probes in your Kubernetes cluster.
 
-## The Problem
-When 50 microservices all depend on a single database, standard Kubernetes Probes create dangerous inefficiencies:
+Stop writing custom scripts, sidecars, or cronjobs just to check if "Site A" is up or "Service B" is reachable. Define your probes declaratively and let the operator handle the rest.
 
-1.  **The "Thundering Herd":** If you have 50 replicas checking the database every 5 seconds, you are hammering your distressed database with **600 requests per minute** just for health checks. This often prevents the database from recovering.
-2.  **Slow MTTR (Mean Time To Recovery):** When pods fail their local probes, it is hard to tell if the application is broken or if the dependency is down. Debugging becomes a guessing game.
-3.  **Wasted Resources:** Pods consume CPU cycles constantly checking external connections instead of focusing on serving user traffic.
+## 🚀 Why Use It?
 
-## The Solution
-**Readiness Controller** acts as a **Singleton Sentinel**.
+*   **Simple Configuration**: Define your checks in standard YAML. No code required.
+*   **Versatile**: Check internal services, external APIs, databases, or run custom scripts.
+*   **Unified Visibility**: Get a consistent view of all your probes via Kubernetes CRDs, Prometheus Metrics, and Grafana.
+*   **Zero Overhead**: A single operator manages hundreds of probes efficiently.
 
-1.  **Check Once, Gate Many:** The controller checks the dependency **one time**.
-2.  **Global Traffic Control:** If the dependency is down, it closes the "Readiness Gate" on all 50 replicas instantly.
-3.  **Reduced Load:** Your application pods stop hammering the database. They simply wait.
-4.  **Instant Feedback:** The Status Dashboard shows exactly which Gate is closed, making the root cause obvious immediately.
+## ✨ Features
 
----
+*   **HTTP/HTTPS**: Check status codes, response times.
+*   **TCP**: Check port connectivity (Databases, Queues).
+*   **Prometheus**: Native metrics (`probe_success`, `probe_duration_seconds`) on port `9090`.
+*   **Grafana**: Includes a ready-to-use dashboard.
 
-## Features
-* **Multi-Gate Support:** Manage multiple dependencies for different microservices from a single controller.
-* **Native Integration:** Uses standard K8s `readinessGates`. No sidecars, no Service Mesh required.
-* **Pluggable Probers:**
-    * `http`: Check REST APIs or Webhooks.
-    * `tcp`: Check Databases, Queues, or raw sockets.
-    * `exec`: Run custom scripts (curl, grep, jq) for complex logic.
-* **Status Dashboard:** Built-in web UI to visualize the state of all gates.
+## 🛠️ Quick Start
 
----
-
-## Quick Start
-
-### 1. Prerequisites
-* Kubernetes 1.14+
-* Helm 3+
-
-### 2. Install the Chart
-Clone the repository and install using Helm:
-
+### 1. Install
 ```bash
-git clone https://github.com/EladAviczer/readiness-controller.git
-cd readiness-controller
-
-# Install the chart
-helm install rc ./charts/readiness-controller
+helm upgrade --install probe-operator ./charts/probe-operator \
+  --namespace default \
+  --set metrics.enabled=true
 ```
 
----
-
-## Integration Guide
-
-For the controller to protect your application, you must explicitly inject the **Readiness Gate** into your Pod Template.
-
-### How to modify your Application Deployment
-
-1.  Open your application's `deployment.yaml`.
-2.  Add the `readinessGates` block under `spec.template.spec`.
-3.  Ensure the `conditionType` matches exactly what you defined in the controller config values gates section . ```{{ .Values.Gates.gateName }} ```
+### 2. Configure Your Probes
+Simply edit `values.yaml` to define what you want to check:
 
 ```yaml
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: my-critical-app
-spec:
-  template:
-    spec:
-      # --- ADD THIS BLOCK ---
-      readinessGates:
-        - conditionType: "controller.rc/google-check"
-      # ----------------------
-      
-      containers:
-        - name: app
-          image: my-app:v1
+probes:
+  # Check an external website
+  - name: "check-google"
+    checkType: "http"
+    checkTarget: "https://google.com"
+    interval: "30s"
+
+  # Check an internal database port
+  - name: "check-postgres"
+    checkType: "tcp"
+    checkTarget: "postgres-service:5432"
+    interval: "10s"
+    
+  # Check a service in another namespace
+  - name: "check-payment-api"
+    checkType: "http"
+    checkTarget: "http://payment.finance.svc.cluster.local/health"
+    interval: "15s"
 ```
 
-> **Note:** If you forget this step, the controller will run successfully, but it will have **no effect** on your pods. Traffic will continue to flow even if the dependency is down.
+### 3. See Results
+**Instant Status via CLI:**
+```bash
+$ kubectl get probes
+NAME               HEALTHY   MESSAGE        AGE
+check-google       true      200 OK         2m
+check-postgres     true      Connected      2m
+check-payment-api  false     503 Unavailable 2m
+```
+
+**Visualize in Grafana:**
+Import the included `dashboards/grafana-dashboard.json` to see Success Rates, Latency, and Status History instantly.
+
+## 🧩 How It Works
+1.  You define a **Probe**.
+2.  The **Operator** executes the check (HTTP, TCP, etc.) on the defined interval.
+3.  The results are immediately available in:
+    *   **Kubernetes API** (as `Probe` objects)
+    *   **Prometheus** (as metrics)
+
+**Port Isolation:**
+*   `:8080`: Internal status UI.
+*   `:9090`: Prometheus metrics.
