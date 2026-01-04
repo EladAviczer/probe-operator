@@ -71,6 +71,28 @@ check-payment-api  false     503 Unavailable 2m
 **Visualize in Grafana:**
 Import the included `dashboards/grafana-dashboard.json` to see Success Rates, Latency, and Status History instantly.
 
+
+## Probe Custom Resource
+
+You can also define probes directly via `CRD` by creating a `Probe` CR:
+
+```yaml
+apiVersion: probes.ready.io/v1alpha1
+kind: Probe
+metadata:
+  name: example-probe
+  namespace: default
+spec:
+  # Type: "http", "tcp", or "exec"
+  checkType: http
+  # Target URL or Host:Port
+  checkTarget: https://example.com
+  # Check frequency
+  interval: 30s
+  # Timeout (optional)
+  timeout: 5s
+```
+
 ## How It Works
 1.  You define a **Probe**.
 2.  The **Operator** executes the check (HTTP, TCP, etc.) on the defined interval.
